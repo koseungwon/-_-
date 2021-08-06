@@ -1,0 +1,431 @@
+라이브러리, 데이터 준비
+
+# 실행하고 런타임 다시시작 필수!!!!!!!
+!sudo apt-get install -y fonts-nanum
+!sudo fc-cache -fv
+!rm ~/.cache/matplotlib -rf
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly as py
+import seaborn as sns
+from matplotlib import font_manager, rc
+import plotly.express as px
+from plotly.offline import download_plotlyjs, init_notebook_mode, iplot
+from scipy import stats
+%matplotlib inline
+from sklearn.preprocessing import MinMaxScaler
+from datetime import timedelta
+from sklearn.model_selection import train_test_split
+
+
+# 한글 글꼴
+plt.rcParams['axes.unicode_minus'] = False
+
+f_path ='/content/drive/MyDrive/글꼴/NanumGothic.ttf'
+font_name = font_manager.FontProperties(fname=f_path).get_name()
+rc('font', family=font_name)
+
+df = pd.read_csv('/content/drive/MyDrive/소현_승원_공모전/데이콘_전기사용량 예측/origin_data/train.csv',encoding='cp949')
+test = pd.read_csv('/content/drive/MyDrive/소현_승원_공모전/데이콘_전기사용량 예측/origin_data/test.csv',encoding='cp949')
+sub = pd.read_csv('/content/drive/MyDrive/소현_승원_공모전/데이콘_전기사용량 예측/origin_data/sample_submission.csv',encoding='cp949')
+
+전체 데이터 셋 확인
+# 결측치 확인
+df.isnull().sum()
+
+# 결측치 없음
+
+columns = ['전력사용량(kWh)','기온(°C)','풍속(m/s)','습도(%)','강수량(mm)','일조(hr)','비전기냉방설비운영','태양광보유']
+df[columns].describe()
+
+# 각 컬럼에 대한 시각화
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize = (30,25))
+for i in range(8):
+    plt.subplot(5,4,i+1)
+    sns.distplot(df[columns[i]])
+plt.show()
+
+# 각 컬럼별 상관관계
+f,ax=plt.subplots(1,1,figsize=(10,8))
+plt.rc('font', family='NanumGothic') 
+sns.heatmap(df.loc[:,:].corr(), annot = True, fmt = '.1g', cmap = 'summer')
+
+
+## train 셋 각 컬럼별 정리
+#### Date_time
+
+# 따로 컬럼 만들어 시간 추출
+def time(x):
+    return int(x[-2:])
+
+df['time']=df['date_time'].apply(lambda x: time(x))
+
+# 각각 동일하게 분포하고 있어 시각화 X
+df['time'].value_counts()
+
+# 따로 컬럼 만들어 요일 추출
+def weekday(x):
+    return pd.to_datetime(x[:24]).weekday()
+
+df['weekday']=df['date_time'].apply(lambda x :weekday(x))
+
+# 각각 동일하게 분포하고 있어 시각화 X
+df['weekday'].value_counts()
+
+# 따로 컬럼 만들어 몇주찬지 추출
+# 오브젝트 형태에서 날짜형으로 변경
+df['date'] = pd.to_datetime(df['date_time'])
+
+# 날짜형에서 포문을 활용해 년도/주차/요일 추출
+date_1 = []
+for i in df['date']:
+  date_1.append(i.isocalendar())
+
+# 확인
+date_1[2]
+
+# 포문을 활용해 주차만 추출하고 1년의 주차를 뽑아주기 때문에 우리에 맞게 -22를 함
+date_2 = []
+for i in range(len(date_1)):
+  date_2.append(date_1[i][1]-22)
+
+df['week_number']=date_2
+
+df['week_number'].value_counts()
+
+df = df.drop(['date_time'],axis=1)
+
+#### 강수량
+
+###### 비가 얼마나 왔는지보다 비가 왔냐 안왔냐로 판단하는게 좋다고 판단하여 전처리
+
+# 강수 -> 비 온다 / 안온다
+def rain(x):
+    if x==0: return 0
+    elif x>0: return 1
+
+df["강수량(mm)"] = df["강수량(mm)"].apply(rain)
+
+df['강수량(mm)'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['강수량(mm)'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('강수량(mm)')
+ax[0].set_ylabel('')
+sns.countplot('강수량(mm)', data = df, ax=ax[1])
+ax[1].set_title('강수량(mm)')
+plt.show()
+
+##### 비 오는 날이 훨씬 적다는 것을 알 수 있다
+
+
+
+#### 비전기냉방설비운영
+
+
+df['비전기냉방설비운영'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['비전기냉방설비운영'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('비전기냉방설비운영')
+ax[0].set_ylabel('')
+sns.countplot('비전기냉방설비운영', data = df, ax=ax[1])
+ax[1].set_title('비전기냉방설비운영')
+plt.show()
+
+#### 태양광 보유
+
+df['태양광보유'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['태양광보유'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('태양광보유')
+ax[0].set_ylabel('')
+sns.countplot('태양광보유', data = df, ax=ax[1])
+ax[1].set_title('태양광보유')
+plt.show()
+
+#### 일조시간 : 태양의 직사광이 지표면에 비친 시간을 가리키는 단어
+
+###### 일조시간이 0.1당 10분임. 따라서 0 ~ 0.4는 흐림, 0.5 ~ 1까지는 맑음으로 처리 / 3등분도 생각중
+
+df['일조(hr)'].value_counts()
+
+def sun(x):
+    if x<=0.4: return 0
+    elif x>=0.5: return 1
+
+df["일조(hr)"] = df["일조(hr)"].apply(sun)
+
+df['일조(hr)'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['일조(hr)'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('일조(hr)')
+ax[0].set_ylabel('')
+sns.countplot('일조(hr)', data = df, ax=ax[1])
+ax[1].set_title('일조(hr)')
+plt.show()
+
+# 요일에 따른 평균 값 산출
+weekday_mean = (
+    df.groupby(['num', 'weekday'])['전력사용량(kWh)'].mean()
+    .reset_index()
+    .pivot('num', 'weekday', '전력사용량(kWh)')
+    .reset_index()
+)
+
+# 시간에 따른 평균 값 산출
+hour_mean = (
+    df.groupby(['num', 'time'])['전력사용량(kWh)'].mean()
+    .reset_index()
+    .pivot('num', 'time', '전력사용량(kWh)')
+    .reset_index()
+    .drop('num', axis=1)
+)
+
+tr = pd.concat([weekday_mean, hour_mean], axis=1)
+
+# 보기 편하게 컬럼 이름 지정
+columns = (
+    ['num']
+    + ['day_mean_' + str(i) for i in range(7)]
+    + ['hour_mean_' + str(i) for i in range(24)]
+)
+
+tr.columns = columns
+
+from sklearn.cluster import KMeans
+# elbow method를 통해 군집의 개수 결정
+def change_n_clusters(n_clusters, data):
+    sum_of_squared_distance = []
+    for n_cluster in n_clusters:
+        kmeans = KMeans(n_clusters=n_cluster)
+        kmeans.fit(data)
+        sum_of_squared_distance.append(kmeans.inertia_)
+        
+    plt.figure(1 , figsize = (12, 6))
+    plt.plot(n_clusters , sum_of_squared_distance , 'o')
+    plt.plot(n_clusters , sum_of_squared_distance , '-' , alpha = 0.5)
+    plt.xlabel('Number of Clusters')
+    plt.ylabel('Inertia')
+
+change_n_clusters([2,3,4,5,6,7,8,9,10,11], tr.iloc[:,1:])
+
+model = KMeans(n_clusters = 5, random_state = 42)
+pred = model.fit_predict(tr.iloc[:, 1:])
+
+tr['km_cluster'] = pred
+
+tr = pd.merge(df, tr[['num', 'km_cluster']], how='left', on='num')
+
+tr
+
+## Test 전처리
+
+test.head()
+
+#### Date_time
+
+# 따로 컬럼 만들어 시간 추출
+def time(x):
+    return int(x[-2:])
+
+test['time']=test['date_time'].apply(lambda x: time(x))
+
+# 각각 동일하게 분포하고 있어 시각화 X
+test['time'].value_counts()
+
+# 따로 컬럼 만들어 요일 추출
+def weekday(x):
+    return pd.to_datetime(x[:24]).weekday()
+
+test['weekday']=test['date_time'].apply(lambda x :weekday(x))
+
+# 각각 동일하게 분포하고 있어 시각화 X
+test['weekday'].value_counts()
+
+# 따로 컬럼 만들어 몇주찬지 추출
+# 오브젝트 형태에서 날짜형으로 변경
+test['date'] = pd.to_datetime(test['date_time'])
+
+# 날짜형에서 포문을 활용해 년도/주차/요일 추출
+date_1 = []
+for i in test['date']:
+  date_1.append(i.isocalendar())
+
+# 확인
+date_1[2]
+
+# 포문을 활용해 주차만 추출하고 1년의 주차를 뽑아주기 때문에 우리에 맞게 -22를 함
+date_2 = []
+for i in range(len(date_1)):
+  date_2.append(date_1[i][1]-22)
+
+test['week_number']=date_2
+
+test['week_number'].value_counts()
+
+test = test.drop(['date_time'],axis=1)
+
+#### 강수량
+
+###### 비가 얼마나 왔는지보다 비가 왔냐 안왔냐로 판단하는게 좋다고 판단하여 전처리
+
+# 강수 -> 비 온다 / 안온다
+def rain(x):
+    if x==0: return 0
+    elif x>0: return 1
+
+test["강수량(mm, 6시간)"] = test["강수량(mm, 6시간)"].apply(rain)
+
+test['강수량(mm, 6시간)'].value_counts()
+
+#### 일조시간 : 태양의 직사광이 지표면에 비친 시간을 가리키는 단어
+
+###### 일조시간이 0.1당 10분임. 따라서 0 ~ 0.4는 흐림, 0.5 ~ 1까지는 맑음으로 처리 / 3등분도 생각중
+
+test['일조(hr, 3시간)'].value_counts()
+
+def sun(x):
+    if x<=0.4: return 0
+    elif x>=0.5: return 1
+
+test["일조(hr, 3시간)"] = test["일조(hr, 3시간)"].apply(sun)
+
+test['일조(hr, 3시간)'].value_counts()
+
+test = test.drop(['date'],axis=1)
+
+test
+
+#건물별로 '비전기냉방설비운영'과 '태양광보유'를 판단해 test set의 결측치를 보간해줍니다
+df[['num', '비전기냉방설비운영','태양광보유']]
+ice={}
+hot={}
+count=0
+for i in range(0, len(df), len(df)//60):
+    count +=1
+    ice[count]=df.loc[i,'비전기냉방설비운영']
+    hot[count]=df.loc[i,'태양광보유']
+
+for i in range(len(test)):
+    test.loc[i, '비전기냉방설비운영']=ice[test['num'][i]]
+    test.loc[i, '태양광보유']=hot[test['num'][i]]
+
+# 나머지 컬럼들의 결측치는 interpolate 로 해결
+# https://rfriend.tistory.com/264
+# default 값을 선형으로 비례하여 결측치 값 처리
+test = test.interpolate(method='values')
+
+test.info()
+
+# 결측치 확인
+test.isnull().sum()
+
+te = test.copy()
+
+for i in range(1, 61):
+    test_cl.loc[test_cl.num == i, 'km_cluster'] = (
+        train_cl.loc[train_cl.num == i, 'km_cluster'].max()
+    )
+
+te
+
+## 모델링
+# y변수를 기반으로 x,y를 나눔
+# 벨리데이션(?) 만들기
+train_x = tr.drop(['전력사용량(kWh)'],axis=1)
+train_y = tr['전력사용량(kWh)']
+
+# 학습을 위한 스플릿
+X_train, X_test, y_train, y_test = train_test_split(train_x, train_y, test_size=0.2,random_state = 0)
+
+# 스플릿이 잘 되었나 확인
+print(X_train.shape)
+print(X_test.shape)
+print(y_train.shape)
+print(y_test.shape)
+
+# 최종_그리드서치 진행 후
+# LGBM
+import lightgbm as lgbm
+from lightgbm import LGBMRegressor
+
+lgbm_ff = LGBMRegressor(random_state=0, learning_rate=0.2, metric = 'mape',
+                      num_iterations=2000,max_depth=-1,min_data_in_leaf=3)
+
+evals = [(X_test, y_test)]
+
+lgbm_ff.fit(X_train, y_train).score(X_test, y_test)
+
+# 교차검증 : 일반화 성능을 재기 위해 훈련 세트와 테스트 세트로 한 번 나누는 것보다 더 안정적이고 뛰어난 동계적 평가 방법
+# 일반적으로 스플릿을 진행할 때 랜덤으로 나눠주기 때문에 한쪽으로 데이터들이 한쪽으로 치우칠 수 있는 단점이 있는데 이것을 교차검증으로 몇번 더 나눠 보완할 수 있음.
+model = lgbm_ff
+
+from sklearn.model_selection import cross_val_score
+# k를 조정하여 다섯번(cv=5) 돌려본다.
+scores = cross_val_score(model, X_train, y_train, cv=5)
+print("교차 검증 점수: {}".format(scores))
+print("교차 검증 평균 점수: {:.2f}".format(scores.mean()))
+
+####### 현재 우리의 예측값 110.416
+
+####### 러닝 0.2 / 이터레이션 2000 / 맥스 -1 / 리프 6
+
+####### 과도한 예측은 A t = 100 및 F t = 110은 SMAPE = 4.76 %
+####### 예측 부족은 A t = 100 및 F t = 90은 SMAPE = 5.26 %
+###### 실제 100에 예측 98이면 0.1%가 나옴!!
+###### 과적합이 되있기때문에 줄여야됨
+
+# 예측값 산출
+y_pred = lgbm_ff.predict(X_test)
+
+# SMAPE(대칭 평균 절대 백분율 오류) 검증
+# 백분율 (또는 상대) 오류를 기반으로하는 정확도 측정
+# 오치율에 대한 범위가 기존 식은 0~200이라는 말인데
+# 해석하기 쉽고 대중적으로 쓰는 식은 0~100 이다.
+# 따라서 범위를 지정해주는 np.asb(f-a) 앞에 있던 2*를 뺌.
+def smape(a, f):
+    return 1/len(a) * np.sum(np.abs(f-a) / (np.abs(a) + np.abs(f))*100)
+
+# 이 모델의 대칭 평균 절대 백분율 오차가 2.2241% 임을 알 수 있음.
+# 이거일 때 정확도는 약 95% 정도 나옴
+# 낮은 수치가 좋은것임.
+smape(y_test, y_pred)
+
+## 최종 모델로 적용
+
+# 최종 모델을 변수에 저장하고 정확도를 확인
+best_model = lgbm_ff
+best_model.score(X_test, y_test)
+
+tr
+
+# 적용 전 최종적으로 테스트 셋 확인
+te.head()
+
+# train set과 컬럼명을 맞춰주는 작업 진행
+te = te.rename(columns={'강수량(mm, 6시간)':'강수량(mm)'})
+te = te.rename(columns={'일조(hr, 3시간)':'일조(hr)'})
+
+# predict 함수를 통해 예측값 도출
+predictions = best_model.predict(te)
+
+# 예측값은 array로 나옴
+predictions
+
+  # array로 나온 값을 정답지에 붙여넣기
+  sub['answer'] = predictions
+
+sub
+
+sub.to_csv('/content/drive/MyDrive/소현_승원_공모전/데이콘_전기사용량 예측/lgbm_cluster_submission_fff.csv', index=False)
