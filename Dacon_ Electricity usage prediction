@@ -1,4 +1,4 @@
-라이브러리, 데이터 준비
+## 라이브러리, 데이터 준비
 
 # 실행하고 런타임 다시시작 필수!!!!!!!
 !sudo apt-get install -y fonts-nanum
