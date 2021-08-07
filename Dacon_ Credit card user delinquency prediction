@@ -1,0 +1,889 @@
+# <span style="color:blue">라이브러리 및 데이터불러오기</span>
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly as py
+import seaborn as sns
+import plotly.express as px
+from plotly.offline import download_plotlyjs, init_notebook_mode, iplot
+from scipy import stats
+%matplotlib inline
+import sklearn
+from sklearn.preprocessing import *
+
+df = pd.read_csv('data/train.csv',encoding='cp949')
+df.head()
+
+# <span style="color:blue">전체 데이터 셋 확인하기</span>
+
+# train 셋 확인
+df.info()
+
+# 결측치 확
+라이브러리 및 데이터불러오기인
+df.isnull().sum()
+
+# <span style="color:blue">칼럼별 EDA 및 전처리</span>
+
+# <span style="color:red">credit</span>
+
+f, ax = plt.subplots(1, 2, figsize=(18,8))
+df['credit'].value_counts().plot.pie(explode=[0,0.1, 0.1],autopct='%1.1f%%',ax=ax[0],shadow=True)
+ax[0].set_title('credit')
+ax[0].set_ylabel('credit')
+sns.countplot('credit',data=df,ax=ax[1])
+ax[1].set_title('credit')
+plt.show()
+
+### credit: 사용자의 신용카드 대금 연체를 기준으로 한 신용도
+ #### - 낮을 수록 높은 신용의 신용카드 사용자를 의미함
+ #### - 신용도가 낮을수록 데이터 비율이 증가함
+
+# <span style="color:red">gender</span>
+
+df['gender'].value_counts()
+
+df.groupby(['gender', 'credit'])['credit'].count()
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.countplot('gender',hue='credit',data=df)
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['gender'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('gender')
+ax[0].set_ylabel('')
+sns.countplot('gender', data = df, ax=ax[1])
+ax[1].set_title('gender')
+plt.show()
+
+df[['gender','credit']].groupby(['gender']).mean()
+
+### 여성과 남성의 비율자체가 7:3 정도이며, 구하고자하는 credit의 평균에는 남성과 여성의 차이가 거의 없는 것으로 판단된다.
+
+# <span style="color:red">car</span>
+
+df['car'].value_counts()
+
+df.groupby(['car', 'credit'])['credit'].count()
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.countplot('car',hue='credit',data=df)
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['car'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('car')
+ax[0].set_ylabel('')
+sns.countplot('car', data = df, ax=ax[1])
+ax[1].set_title('car')
+plt.show()
+
+df[['car','credit']].groupby(['car']).mean()
+
+### 자동차 소유여부의 비율자체이 6:4 정도이며, 구하고자하는 credit의 평균에는 자동차 소유여부의 차이가 거의 없는 것으로 판단된다.
+
+# <span style="color:red">reality</span>
+
+df['reality'].value_counts()
+
+df.groupby(['reality', 'credit'])['credit'].count()
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.countplot('reality',hue='credit',data=df)
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['reality'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('reality')
+ax[0].set_ylabel('')
+sns.countplot('reality', data = df, ax=ax[1])
+ax[1].set_title('reality')
+plt.show()
+
+df[['reality','credit']].groupby(['reality']).mean()
+
+### 부동산 소유여부의 경우 차이가 명확할 것이라 생각했지만, 앞선 칼럼들과 마찬가지로 비율이 6:4 정도이며, 구하고자하는 credit의 평균에는 부동차 소유여부의 차이가 거의 없는 것으로 판단된다.
+
+# <span style="color:red">child_num</span>
+
+df['child_num'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['child_num','credit']].groupby(['child_num']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs child_num')
+sns.countplot('child_num',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('child_num:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### 3명 이상의 자식 수 부터는 데이터의 숫자 자체가 굉장히 적으며, 국내에서의 다자녀 분류 기준이 3명부터인 것을 고려하여 3명이상 부터는 하나의 카테고리로 묶어서 분류
+
+# 3명 이상의 자식수 통일
+def child(x):
+    if x>=3: return 3
+    elif x==0: return 0
+    elif x==1: return 1
+    elif x==2: return 2
+
+df["child_num"] = df["child_num"].apply(child)
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['child_num','credit']].groupby(['child_num']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs child_num')
+sns.countplot('child_num',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('child_num:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['child_num','credit']].groupby(['child_num']).mean()
+
+### 구하고자하는 credit의 평균에는 자식수의 차이가 거의 없는 것으로 판단된다.
+
+
+# <span style="color:red">income_total</span>
+
+df['income_total'].describe()
+
+df['income_total'].plot.box()
+
+### 예상대로 연간소득 수준의 차이가 큰 숫자들이 많은 것으로 보인다.
+### 각 Feture간의 차이를 줄이기 위하여 MinMaxScaler를 이용한다.
+
+min_max_scaler = MinMaxScaler()
+
+df[["income_total"]] = min_max_scaler.fit_transform(df[["income_total"]])
+
+df['income_total'].describe()
+
+# <span style="color:red">income_type</span>
+
+df['income_type'].value_counts()
+
+df.groupby(['income_type', 'credit'])['credit'].count()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['income_type','credit']].groupby(['income_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs income_type')
+sns.countplot('income_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('income_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['income_type','credit']].groupby(['income_type']).mean()
+
+### 'Student'카테고리의 데이터가 너무 적으며, credit의 평균에 income_type의 차이가 크게 없는 것으로 보인다.
+
+# <span style="color:red">edu_type</span>
+
+df['edu_type'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['edu_type','credit']].groupby(['edu_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs edu_type')
+sns.countplot('edu_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('edu_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['edu_type','credit']].groupby(['edu_type']).mean()
+
+### credit의 평균에 edu_type의 차이가 크게 없는 것으로 보인다.
+### 대부분의 데이터들이 Secondary / secondary special, Higher education이다.
+
+# <span style="color:red">family_type</span>
+
+df['family_type'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['family_type','credit']].groupby(['family_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs family_type')
+sns.countplot('family_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('family_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['family_type','credit']].groupby(['family_type']).mean()
+
+### credit의 평균에 family_type의 차이가 크게 없는 것으로 보인다.
+### 대부분의 데이터들이 Married이다.
+
+## 같이사는 사람과 혼자사는 사람으로 분류하여 신용도를 비교해보자.
+
+# 0 : 같이 산다 / 1 : 혼자 산다
+def family(x):
+    if x=="Married": return 0
+    elif x=="Civil marriage": return 0
+    elif x=="Single / not married": return 1
+    elif x=="Separated": return 1
+    elif x=="Widow": return 1
+
+df["family_type"] = df["family_type"].apply(family)
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['family_type','credit']].groupby(['family_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs family_type')
+sns.countplot('family_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('family_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['family_type','credit']].groupby(['family_type']).mean()
+
+### 크게 변화는 없는 듯 하다.
+
+# <span style="color:red">house_type</span>
+
+df['house_type'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['house_type','credit']].groupby(['house_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs house_type')
+sns.countplot('house_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('house_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['house_type','credit']].groupby(['house_type']).mean()
+
+### 대부분이 집이 있으며 생각과는 다르게 임대아파트 주민이 오히려 신용도 평균이 근소하게나마 높은 것으로 보임.
+
+# <span style="color:red">DAYS_BIRTH</span>
+
+df['DAYS_BIRTH'].value_counts()
+
+### 나이로 변경
+
+df['DAYS_BIRTH']=np.floor((-df['DAYS_BIRTH'])/365).astype(int)
+
+f,ax=plt.subplots(1,3,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_BIRTH,ax=ax[0])
+ax[0].set_title('credit(0)')
+sns.distplot(df[df['credit']==1].DAYS_BIRTH,ax=ax[1])
+ax[1].set_title('credit(1)')
+sns.distplot(df[df['credit']==2].DAYS_BIRTH,ax=ax[2])
+ax[2].set_title('credit(2)')
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_BIRTH)
+sns.distplot(df[df['credit']==1].DAYS_BIRTH)
+sns.distplot(df[df['credit']==2].DAYS_BIRTH)
+
+plt.show()
+
+## <span style="color:blue">blue : credit 0</span> //// <span style="color:orange">orange : credit 1</span> //// <span style="color:green">green : credit2</span>
+
+### 나이별 credit 평균을 알아보자
+
+df_age=df[['DAYS_BIRTH','credit']].groupby(['DAYS_BIRTH']).mean()
+df_age.head()
+
+df_age['credit'].plot(figsize=(15,6),color='blue',label="credit mean",marker='o')
+plt.legend()
+plt.xlabel('DAYS_BIRTH')
+plt.show()
+
+### 연령대별 신용도를 비교해보자
+
+df['Age_band']=0
+
+df.loc[(df['DAYS_BIRTH']<70)&(df['DAYS_BIRTH']>=60),'Age_band']=60
+df.loc[(df['DAYS_BIRTH']<60)&(df['DAYS_BIRTH']>=50),'Age_band']=50
+df.loc[(df['DAYS_BIRTH']<50)&(df['DAYS_BIRTH']>=40),'Age_band']=40
+df.loc[(df['DAYS_BIRTH']<40)&(df['DAYS_BIRTH']>=30),'Age_band']=30
+df.loc[(df['DAYS_BIRTH']<30)&(df['DAYS_BIRTH']>=20),'Age_band']=20
+
+df['Age_band'].head()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['Age_band','credit']].groupby(['Age_band']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs Age_band')
+sns.countplot('Age_band',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('Age_band:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df[['Age_band','credit']].groupby(['Age_band']).mean()
+
+### 데이터셋의 연령대 비중은 30대 > 40대 > 50대 > 20대 > 60대 순임.
+### 나이와 credit의 관계에서 큰 차이를 찾기는 어려움.
+
+# <span style="color:red">DAYS_EMPLOYED</span>
+
+df['DAYS_EMPLOYED'].value_counts()
+
+### 경력이 365243인 데이터 4438개 존재, 양수값은 고용되지 않은 값을 의미하므로 0으로 변경
+
+# 양수값 0으로 변경
+df["DAYS_EMPLOYED"] = df["DAYS_EMPLOYED"].replace(365243, 0).astype(int)
+
+# 경력 월단위로 변경
+df['DAYS_EMPLOYED']=np.floor((-df['DAYS_EMPLOYED'])/30).astype(int)
+
+f,ax=plt.subplots(1,3,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_EMPLOYED,ax=ax[0])
+ax[0].set_title('credit(0)')
+sns.distplot(df[df['credit']==1].DAYS_EMPLOYED,ax=ax[1])
+ax[1].set_title('credit(1)')
+sns.distplot(df[df['credit']==2].DAYS_EMPLOYED,ax=ax[2])
+ax[2].set_title('credit(2)')
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_EMPLOYED)
+sns.distplot(df[df['credit']==1].DAYS_EMPLOYED)
+sns.distplot(df[df['credit']==2].DAYS_EMPLOYED)
+
+plt.show()
+
+## <span style="color:blue">blue : credit 0</span> //// <span style="color:orange">orange : credit 1</span> //// <span style="color:green">green : credit2</span>
+
+### 연차수로 비교해보자
+
+# 경력 연단위로 변경
+df['DAYS_EMPLOYED_Year']=np.floor((df['DAYS_EMPLOYED'])/12).astype(int)
+
+df['DAYS_EMPLOYED_Year'].value_counts()
+
+f,ax=plt.subplots(1,3,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_EMPLOYED_Year,ax=ax[0])
+ax[0].set_title('credit(0)')
+sns.distplot(df[df['credit']==1].DAYS_EMPLOYED_Year,ax=ax[1])
+ax[1].set_title('credit(1)')
+sns.distplot(df[df['credit']==2].DAYS_EMPLOYED_Year,ax=ax[2])
+ax[2].set_title('credit(2)')
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.distplot(df[df['credit']==0].DAYS_EMPLOYED_Year)
+sns.distplot(df[df['credit']==1].DAYS_EMPLOYED_Year)
+sns.distplot(df[df['credit']==2].DAYS_EMPLOYED_Year)
+
+plt.show()
+
+## <span style="color:blue">blue : credit 0</span> //// <span style="color:orange">orange : credit 1</span> //// <span style="color:green">green : credit2</span>
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['DAYS_EMPLOYED_Year','credit']].groupby(['DAYS_EMPLOYED_Year']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs DAYS_EMPLOYED_Year')
+sns.countplot('DAYS_EMPLOYED_Year',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('DAYS_EMPLOYED_Year:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+df_employed=df[['DAYS_EMPLOYED_Year','credit']].groupby(['DAYS_EMPLOYED_Year']).mean()
+df_employed.head()
+
+df_employed['credit'].plot(figsize=(15,6),color='blue',label="credit mean",marker='o')
+plt.legend()
+plt.xlabel('DAYS_EMPLOYED_Year')
+plt.show()
+
+### 경력이 증가할수록 데이셋의 숫자가 감소.
+### 대부분이 10년미만의 경력임.
+### 전체적으로 경력이 증가할수록 신용도가 낮은 경향을 보임.
+
+# <span style="color:red">FLAG_MOBIL</span>
+
+df['FLAG_MOBIL'].value_counts()
+
+### 핸드폰이 없는사람은 없음.
+
+# <span style="color:red">work_phone</span>
+
+df['work_phone'].value_counts()
+
+df.groupby(['work_phone', 'credit'])['credit'].count()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['work_phone'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('work_phone')
+ax[0].set_ylabel('')
+sns.countplot('work_phone', data = df, ax=ax[1])
+ax[1].set_title('work_phone')
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['work_phone','credit']].groupby(['work_phone']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs work_phone')
+sns.countplot('work_phone',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('work_phone:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### work_phone의 소유여부와 credit은 큰 차이가 없어 보임.
+
+# <span style="color:red">phone</span>
+
+df['phone'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['phone'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('phone')
+ax[0].set_ylabel('')
+sns.countplot('phone', data = df, ax=ax[1])
+ax[1].set_title('phone')
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['phone','credit']].groupby(['phone']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs phone')
+sns.countplot('phone',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('phone:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### 핸드폰이 많이 보급되면서 전화기를 소유한 곳이 많이 줄어든 것으로 추측됨.
+### phone의 소유여부와 credit은 큰 차이가 없어 보임.
+
+# <span style="color:red">email</span>
+
+df['email'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df['email'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('email')
+ax[0].set_ylabel('')
+sns.countplot('email', data = df, ax=ax[1])
+ax[1].set_title('email')
+plt.show()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['email','credit']].groupby(['email']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs email')
+sns.countplot('email',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('email:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### 요즘같은 시대에 email없는 사람이 10%면 꽤 있는편이라 생각됨.
+### email의 소유여부와 credit은 큰 차이가 없어 보임
+
+# <span style="color:red">occyp_type</span>
+
+df['occyp_type'].value_counts()
+
+df.isnull().sum()
+
+### occyp_type의 NaN값이 8171개로 굉장히 많은 수를 차지함.
+### 해당 NaN값은 미기입과 무직을 의미
+### 최대한 데이터를 살리기 위해 DAYS_EMPLOYED칼럼을 이용하여 미기입과 무직 분류
+
+df.loc[(df['occyp_type'].isnull()) & (df['DAYS_EMPLOYED'] == 0) , 'occyp_type'] = 'Jobless'
+df.loc[(df['occyp_type'].isnull()) & (df['DAYS_EMPLOYED'] > 0) , 'occyp_type'] = 'Unfilled'
+
+df['occyp_type'].value_counts()
+
+df['occyp_type'].isnull().sum()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['occyp_type','credit']].groupby(['occyp_type']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs occyp_type')
+sns.countplot('occyp_type',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('occyp_type:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### occyp_type의 평균 credit값에 따른 오름차순 정렬
+
+df[['occyp_type','credit']].groupby(['occyp_type']).mean().sort_values(by=['credit'], axis=0)
+
+### IT staff가 가장 신용도가 높으며, HR staff가 가장 신용도가 낮음.
+### 하지만 IT staff의 데이터 갯수가 41개, HR staff의 데이터 갯수가 62개로 표본의 숫자가 부족해보임.
+### 총 20개의 카테고리 중 1000개 이상의 데이터셋을 가진 카테고리는 8개
+### 100개~1000개의 데이터셋을 가진 카테고리 8개, 100개 이하의 카테고리 4개
+
+# <span style="color:red">family_size</span>
+
+df['family_size'].value_counts()
+
+### 5인 이상의 가족부터는 데이터 갯수가 적어 모두 4인으로 통합
+
+# 4인 이상 통일
+def family_s(x):
+    if x>=5: return 5
+    elif x==1: return 1
+    elif x==2: return 2
+    elif x==3: return 3
+    elif x==4: return 4
+
+df["family_size"] = df["family_size"].apply(family_s)
+
+df['family_size'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+df[['family_size','credit']].groupby(['family_size']).mean().plot.bar(ax=ax[0])
+ax[0].set_title('credit vs family_size')
+sns.countplot('family_size',hue='credit',data=df,ax=ax[1])
+ax[1].set_title('family_size:credit level')
+plt.xticks(rotation=60)
+plt.show()
+
+### family_size에 따른 credit은 큰 차이가 없어 보임.
+
+# <span style="color:red">begin_month</span>
+
+df['begin_month'].value_counts()
+
+df['begin_month']=np.floor((-df['begin_month'])).astype(int)
+df['begin_month'].value_counts()
+
+f,ax=plt.subplots(1,3,figsize=(18,8))
+sns.distplot(df[df['credit']==0].begin_month,ax=ax[0])
+ax[0].set_title('credit(0)')
+sns.distplot(df[df['credit']==1].begin_month,ax=ax[1])
+ax[1].set_title('credit(1)')
+sns.distplot(df[df['credit']==2].begin_month,ax=ax[2])
+ax[2].set_title('credit(2)')
+
+f,ax=plt.subplots(1,1,figsize=(18,8))
+sns.distplot(df[df['credit']==0].begin_month)
+sns.distplot(df[df['credit']==1].begin_month)
+sns.distplot(df[df['credit']==2].begin_month)
+
+plt.show()
+
+## <span style="color:blue">blue : credit 0</span> //// <span style="color:orange">orange : credit 1</span> //// <span style="color:green">green : credit2</span>
+
+df_begin=df[['begin_month','credit']].groupby(['begin_month']).mean()
+df_begin.head(10)
+
+df_begin['credit'].plot(figsize=(15,6),color='blue',label="credit mean",marker='o')
+plt.legend()
+plt.xlabel('begin_month')
+plt.show()
+
+### 카드발급 후 3개월 정도는 대체적으로 신용도가 높은 것을 알수있음.
+
+df.info()
+
+### 데이터 처리를 위해 object형을 모두 카테고리화 시켜주자.
+
+obj = ['gender', 'car', 'reality', 'income_type', 'edu_type', 'house_type', 'occyp_type']
+df[obj] = df[obj].apply(lambda x: x.astype('category').cat.codes)
+df.head()
+
+# <span style="color:blue">상관관계를 살펴보자</span>
+
+f,ax=plt.subplots(1,1,figsize=(10,8))
+sns.heatmap(df.loc[:,:].corr(), annot = True, fmt = '.1g', cmap = 'summer')
+
+
+## 테스트 데이터셋 처리
+test = pd.read_csv('/content/drive/MyDrive/데이콘_공모전/동원/Project/data/test.csv',encoding='cp949')
+test.head()
+
+## 전체 데이터셋 확인
+
+# test 셋 확인
+test.info()
+
+# 결측치 확인
+test.isnull().sum()
+
+## 데이터 전처리
+
+# <span style="color:red">gender</span>
+
+test['gender'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['gender'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('gender')
+ax[0].set_ylabel('')
+sns.countplot('gender', data = test, ax=ax[1])
+ax[1].set_title('gender')
+plt.show()
+
+# <span style="color:red">car</span>
+
+
+['car'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['car'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('car')
+ax[0].set_ylabel('')
+sns.countplot('car', data = test, ax=ax[1])
+ax[1].set_title('car')
+plt.show()
+
+# <span style="color:red">reality</span>
+
+test['reality'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['reality'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('reality')
+ax[0].set_ylabel('')
+sns.countplot('reality', data = test, ax=ax[1])
+ax[1].set_title('reality')
+plt.show()
+
+# <span style="color:red">child_num</span>
+
+test['child_num'].value_counts()
+
+### 3명 이상의 자식 수 부터는 데이터의 숫자 자체가 굉장히 적으며, 국내에서의 다자녀 분류 기준이 3명부터인 것을 고려하여 3명이상 부터는 하나의 카테고리로 묶어서 분류
+
+# 3명 이상의 자식수 통일
+def child(x):
+    if x>=3: return 3
+    elif x==0: return 0
+    elif x==1: return 1
+    elif x==2: return 2
+
+test["child_num"] = test["child_num"].apply(child)
+
+# <span style="color:red">income_total</span>
+
+test['income_total'].describe()
+
+test['income_total'].plot.box()
+
+### 예상대로 연간소득 수준의 차이가 큰 숫자들이 많은 것으로 보인다.
+### 각 Feture간의 차이를 줄이기 위하여 MinMaxScaler를 이용한다.
+
+min_max_scaler = MinMaxScaler()
+
+test[["income_total"]] = min_max_scaler.fit_transform(test[["income_total"]])
+
+test['income_total'].describe()
+
+# <span style="color:red">income_type</span>
+
+test['income_type'].value_counts()
+
+# <span style="color:red">edu_type</span>
+
+test['edu_type'].value_counts()
+
+# <span style="color:red">family_type</span>
+
+test['family_type'].value_counts()
+
+## 같이사는 사람과 혼자사는 사람으로 분류하여 신용도를 비교해보자.
+
+# 0 : 같이 산다 / 1 : 혼자 산다
+def family(x):
+    if x=="Married": return 0
+    elif x=="Civil marriage": return 0
+    elif x=="Single / not married": return 1
+    elif x=="Separated": return 1
+    elif x=="Widow": return 1
+
+test["family_type"] = test["family_type"].apply(family)
+
+# <span style="color:red">house_type</span>
+
+test['house_type'].value_counts()
+
+# <span style="color:red">DAYS_BIRTH</span>
+
+test['DAYS_BIRTH'].value_counts()
+
+### 나이로 변경
+
+test['DAYS_BIRTH']=np.floor((-test['DAYS_BIRTH'])/365).astype(int)
+
+### 연령대
+
+test['Age_band']=0
+
+test.loc[(test['DAYS_BIRTH']<70)&(test['DAYS_BIRTH']>=60),'Age_band']=60
+test.loc[(test['DAYS_BIRTH']<60)&(test['DAYS_BIRTH']>=50),'Age_band']=50
+test.loc[(test['DAYS_BIRTH']<50)&(test['DAYS_BIRTH']>=40),'Age_band']=40
+test.loc[(test['DAYS_BIRTH']<40)&(test['DAYS_BIRTH']>=30),'Age_band']=30
+test.loc[(test['DAYS_BIRTH']<30)&(test['DAYS_BIRTH']>=20),'Age_band']=20
+
+test['Age_band'].head()
+
+# <span style="color:red">DAYS_EMPLOYED</span>
+
+test['DAYS_EMPLOYED'].value_counts()
+
+### 경력이 365243인 데이터 4438개 존재, 양수값은 고용되지 않은 값을 의미하므로 0으로 변경
+
+# 양수값 0으로 변경
+test["DAYS_EMPLOYED"] = test["DAYS_EMPLOYED"].replace(365243, 0).astype(int)
+
+# 경력 월단위로 변경
+test['DAYS_EMPLOYED']=np.floor((-test['DAYS_EMPLOYED'])/30).astype(int)
+
+### 연차수로 비교해보자
+
+# 경력 연단위로 변경
+test['DAYS_EMPLOYED_Year']=np.floor((test['DAYS_EMPLOYED'])/12).astype(int)
+
+test['DAYS_EMPLOYED_Year'].value_counts()
+
+# <span style="color:red">FLAG_MOBIL</span>
+
+test['FLAG_MOBIL'].value_counts()
+
+### 핸드폰이 없는사람은 없음.
+
+# <span style="color:red">work_phone</span>
+
+test['work_phone'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['work_phone'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('work_phone')
+ax[0].set_ylabel('')
+sns.countplot('work_phone', data = test, ax=ax[1])
+ax[1].set_title('work_phone')
+plt.show()
+
+# <span style="color:red">phone</span>
+
+test['phone'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['phone'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('phone')
+ax[0].set_ylabel('')
+sns.countplot('phone', data = test, ax=ax[1])
+ax[1].set_title('phone')
+plt.show()
+
+# <span style="color:red">email</span>
+
+test['email'].value_counts()
+
+f,ax=plt.subplots(1,2,figsize=(18,8))
+test['email'].value_counts().plot.pie(explode=[0,0.1], autopct='%1.2f%%', ax=ax[0], shadow=True)
+ax[0].set_title('email')
+ax[0].set_ylabel('')
+sns.countplot('email', data = test, ax=ax[1])
+ax[1].set_title('email')
+plt.show()
+
+# <span style="color:red">occyp_type</span>
+
+test['occyp_type'].value_counts()
+
+test.isnull().sum()
+
+### occyp_type의 NaN값이 8171개로 굉장히 많은 수를 차지함.
+### 해당 NaN값은 미기입과 무직을 의미
+### 최대한 데이터를 살리기 위해 DAYS_EMPLOYED칼럼을 이용하여 미기입과 무직 분류
+
+test.loc[(test['occyp_type'].isnull()) & (test['DAYS_EMPLOYED'] == 0) , 'occyp_type'] = 'Jobless'
+test.loc[(test['occyp_type'].isnull()) & (test['DAYS_EMPLOYED'] > 0) , 'occyp_type'] = 'Unfilled'
+
+test['occyp_type'].value_counts()
+
+test['occyp_type'].isnull().sum()
+
+# <span style="color:red">family_size</span>
+
+test['family_size'].value_counts()
+
+### 5인 이상의 가족부터는 데이터 갯수가 적어 모두 4인으로 통합
+
+# 4인 이상 통일
+def family_s(x):
+    if x>=5: return 5
+    elif x==1: return 1
+    elif x==2: return 2
+    elif x==3: return 3
+    elif x==4: return 4
+
+test["family_size"] = test["family_size"].apply(family_s)
+
+test['family_size'].value_counts()
+
+# <span style="color:red">begin_month</span>
+
+test['begin_month'].value_counts()
+
+test['begin_month']=np.floor((-test['begin_month'])).astype(int)
+test['begin_month'].value_counts()
+
+test.info()
+
+### 데이터 처리를 위해 object형을 모두 카테고리화 시켜주자.
+
+obj = ['gender', 'car', 'reality', 'income_type', 'edu_type', 'house_type', 'occyp_type']
+test[obj] = test[obj].apply(lambda x: x.astype('category').cat.codes)
+test.head()
+
+
+## 최종 적용
+submission=pd.read_csv('data/sample_submission.csv')
+
+train_x=df.drop(['index', 'credit', 'FLAG_MOBIL'], axis=1)
+train_y=df[['credit']]
+test_x=test.drop(['index', 'FLAG_MOBIL'], axis=1)
+
+print(train_x.shape, train_y.shape, test.shape)
+
+from imblearn.combine import SMOTETomek
+from sklearn.metrics import accuracy_score, log_loss
+from sklearn.metrics import f1_score
+from tensorflow.keras.utils import to_categorical
+from catboost import CatBoostClassifier
+
+X_train, X_val, y_train, y_val = train_test_split(train_x, train_y, 
+                                                    stratify=train_y, test_size=0.25,
+                                                    random_state = 0)
+
+X_resampled, y_resampled = SMOTETomek(random_state=0).fit_resample(train_x, train_y)
+X_train, X_val, y_train, y_val = train_test_split(X_resampled, y_resampled, test_size=0.25, random_state=0)
+
+
+print("Train set: ")
+print(X_train.shape)
+print(y_train.shape)
+print("===========")
+print("Validation set: ")
+print(X_val.shape)
+print(y_val.shape)
+
+
+catboost = CatBoostClassifier(iterations=1000)
+
+catboost.fit(X_train, y_train).score(X_val, y_val)
+y_pred=catboost.predict_proba(X_val)
+
+print(f"log_loss: {log_loss(to_categorical(y_val['credit']), y_pred)}")
+
+from sklearn.model_selection import KFold, StratifiedKFold
+
+def run_kfold(catboost):
+    folds=StratifiedKFold(n_splits=5, shuffle=True, random_state=55)
+    outcomes=[]
+    sub=np.zeros((test_x.shape[0], 3))  
+    for n_fold, (train_index, val_index) in enumerate(folds.split(train_x, train_y)):
+        X_train, X_val = train_x.iloc[train_index], train_x.iloc[val_index]
+        y_train, y_val = train_y.iloc[train_index], train_y.iloc[val_index]
+        catboost.fit(X_train, y_train)
+        
+        predictions=catboost.predict_proba(X_val)
+        
+        logloss=log_loss(to_categorical(y_val['credit']), predictions)
+        outcomes.append(logloss)
+        print(f"FOLD {n_fold} : logloss:{logloss}")
+        
+        sub+=catboost.predict_proba(test_x)
+        
+        
+    mean_outcome=np.mean(outcomes)
+    
+    print("Mean:{}".format(mean_outcome))
+    return sub/folds.n_splits
+
+my_submission = run_kfold(catboost)
+
+my_submission
+
+submission
+
+submission.loc[:,1:]=my_submission
+
+submission
+
+submission.to_csv('result/catboos_1000_again)_submission.csv', index=False)
