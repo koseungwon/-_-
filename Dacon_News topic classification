@@ -111,7 +111,7 @@ s = np.array([x for x in tokenized_data])
 
 # Tokenizer
 from keras.preprocessing.text import Tokenizer
-vocab_size = 20000  
+vocab_size = 10000  
 
 tokenizer = Tokenizer(num_words = vocab_size)  
   # Tokenizer 는 데이터에 출현하는 모든 단어의 개수를 세고 빈도 수로 정렬해서 
