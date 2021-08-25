@@ -23,8 +23,7 @@ df.head()
 # train 셋 확인
 df.info()
 
-# 결측치 확
-라이브러리 및 데이터불러오기인
+# 결측치 확인
 df.isnull().sum()
 
 # <span style="color:blue">칼럼별 EDA 및 전처리</span>
