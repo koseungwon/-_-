@@ -248,8 +248,7 @@ a = Dense(64, activation='relu')(a)
 a = Dropout(0.3)(a)
 a = Dense(64, activation='relu')(a)
 a = Dropout(0.3)(a)
-# a = Dense(64, activation='relu')(a)
-# a = Dropout(0.3)(a)
+
 # a = Dense(32, activation='relu')(a)
 # a = Dense(32, activation='relu')(a)
 
@@ -266,11 +265,6 @@ model.summary()
 loss_fn = keras.losses.CategoricalCrossentropy()
 
 model.compile(optimizer='rmsprop', loss=loss_fn, metrics='acc')
-
-print(X_train.shape)
-print(y_train.shape)
-print(X_test.shape)
-print(y_test.shape)
 
 # test 라 epochs 10만 줌
 from tensorflow.python.keras.callbacks import EarlyStopping
@@ -318,26 +312,15 @@ for i, (tr, val) in enumerate(cv.split(X, y), 1):
 
   early_stopping = EarlyStopping(monitor='val_loss',min_delta=0.001,patience=2,verbose=0,mode='auto')  
 
-  model.fit(X[tr], to_categorical(y[tr]),validation_data=(X[val], to_categorical(y[val])),epochs=10,batch_size=32,callbacks=[early_stopping])
+  model.fit(X[tr], to_categorical(y[tr]),validation_data=(X[val], to_categorical(y[val])),epochs=10,batch_size=512,callbacks=[early_stopping])
 
   test_pred = model.predict(Test) / n_fold
 
+
 pred = np.argmax(test_pred, axis = 1)
 
 # 샘플 서브미션에 적용하기!
 sub["topic_idx"] = pred
 sub.head()
 
-sub.to_csv('/content/drive/MyDrive/GPU 대용/4차_sample_submission.csv', index = False)
-
-## 최종 결과 도출
-
-# 결과 도출
-test_pred = model.predict(Test)
-pred = np.argmax(test_pred, axis = 1)
-
-# 샘플 서브미션에 적용하기!
-sub["topic_idx"] = pred
-sub.head()
-
-sub.to_csv('/content/drive/MyDrive/GPU 대용/1차_sample_submission.csv', index = False)
+sub.to_csv('/content/drive/MyDrive/GPU 대용/2차_sample_submission.csv', index = False)
