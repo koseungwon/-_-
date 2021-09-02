@@ -355,7 +355,12 @@ print(X_test.shape)
 print(y_train.shape)
 print(y_test.shape)
 
-# 최종_그리드서치 진행 후
+# 하이퍼파라미터 조정 방법
+# - 옵티마이제이션
+# - 그리드 서치
+# 를 사용해서 최적의 하이퍼파라미터를 찾을 수 있음.
+# 하지만 프로젝트 시간이 부족하여 진행하지 못하고 수작업으로 진행
+
 # LGBM
 import lightgbm as lgbm
 from lightgbm import LGBMRegressor
