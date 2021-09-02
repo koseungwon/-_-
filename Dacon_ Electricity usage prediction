@@ -355,6 +355,18 @@ print(X_test.shape)
 print(y_train.shape)
 print(y_test.shape)
 
+# 초기 모델링
+# LGBM, Catboost, Logistic, randomforest 결과 확인 후 가장 성능이 좋은 LGBM 
+# LGBM
+# 기본적인 진행은 정확도를 기반으로 함.
+# 그리드서치 전 기본 모델링
+import lightgbm as lgbm
+from lightgbm import LGBMRegressor
+
+lgbm = LGBMRegressor()
+
+lgbm.fit(X_train, y_train).score(X_test, y_test)
+
 # 하이퍼파라미터 조정 방법
 # - 옵티마이제이션
 # - 그리드 서치
