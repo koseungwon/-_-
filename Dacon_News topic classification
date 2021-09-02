@@ -5,7 +5,7 @@ drive.mount('/content/drive')
 
 ## 필수 설치
 
-#### Mecab 설치
+### Mecab 설치
 - 런타임 가속기 GPU로 변경
 
 https://github.com/SOMJANG/Mecab-ko-for-Google-Colab --> 이거 참고함
