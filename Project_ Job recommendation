@@ -1,0 +1,900 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+# konlpy 설치
+
+!pip install konlpy
+import konlpy
+konlpy.__version__
+
+# 기본 라이브러리
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import font_manager, rc
+import seaborn as sns
+
+# 자연어 처리 라이브러리
+# from pykospacing import Spacing
+# from konlpy.tag import Mecab
+from konlpy.tag import Okt
+# from konlpy.tag import Hannanum
+from tensorflow.keras.preprocessing.text import Tokenizer
+import tokenize
+
+# 딥러닝 관련 라이브러리
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.preprocessing import sequence
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras import layers, losses
+from tensorflow.keras.layers import Dense, Dropout, Activation, Input, Flatten, Embedding, Conv1D, GlobalMaxPooling1D, Bidirectional, LSTM
+from keras import models
+from keras.layers import Input, Embedding, LSTM, Dense, Reshape, Conv1D, GlobalMaxPooling1D, SimpleRNN
+from tensorflow.keras.models import Model
+from tensorflow.keras.utils import plot_model
+from keras.callbacks import EarlyStopping
+import keras.backend as K
+
+df = pd.read_excel('/content/drive/MyDrive/인공지능/이력/이력데이터.xlsx')
+tt = pd.read_excel('/content/drive/MyDrive/인공지능/이력/직종및키워드.xlsx')
+ncs = pd.read_excel('/content/drive/MyDrive/인공지능/이력/직무분류.xlsx')
+
+ncs.duplicated()
+
+# 정보 확인
+df.info()
+
+# 결측치 확인
+df.isnull().sum()
+
+
+dfj = tt[['키워드']]
+
+# 결측치 제거
+dfj = dfj.dropna(axis=0)
+
+dfj = dfj.drop_duplicates()
+
+## 데이터 전처리
+
+##### 자격증, 대학교, 전공 하나씩 보면서 범주화 작업 필요
+
+### 라벨 데이터 처리
+
+t1 = df[['지원자', '담당업무']]
+t1
+
+t1['담당업무'].isnull().sum()
+
+# 한글 영어 공백 숫자 외 다 제거
+t1['담당업무'] = t1['담당업무'].str.replace('[^A-Za-z가-힣 ]', "  ")
+t1.head()
+
+t1 = t1.astype(str)
+
+# 하나하나 보면서 불용어 처리를 하고 있지만 하면서도 이게 맞는지 잘 모르겠음... 하면 할 수록 뭔가 더 떨어질거 같은 느낌이 계속 드는데...
+# 불용어 정의
+stopwords=['의','가','이','은','들','는','좀','잘','걍','과','도','를','으로','자','에','와','것','겠','다','및','또','곳','하','면','안','돼','되','될','수','없','어','니깐','는데','나','고','어','했','나','엔','믿','로',
+           '디','에','슬','레','틱','당', '아야','내놓','할','건','넣','부','등', '서', '계','스','잊','힌','끄','지','해','급','권','재','사','성','전','있','않','왔','을','걷','꺾','돼야','해야','린드','냐','아','라','게요',
+           '위','통']
+
+# 토큰화 작업(명사)
+okt = Okt()
+tokenized_data = []
+for sentence in t1['담당업무']:
+    temp_X = okt.nouns(sentence) # 토큰화
+    temp_X = [word for word in temp_X if not word in stopwords] # 불용어 제거
+    tokenized_data.append(temp_X)
+
+# 동일한 사람의 내용을 한개의 리스트로 묶어줌
+t = []
+dd = []
+uni = t1['지원자'].unique()
+len1 = len(t1['지원자'].unique())
+lens = len(t1['지원자'])
+for i in range(0, len1, 1):
+  t = []
+  for a in range(0, lens, 1):
+    if uni[i] == t1['지원자'][a]:
+      t.append(tokenized_data[a])
+  dd.append(t)
+
+dfjj = dfj.values.tolist()
+
+# 배열분할
+def list_chuck(arr, n):
+  return [arr[i: i + n] for i in range(0, len(arr), n)]
+
+# 최종
+a= []
+b= []
+c= []
+d = []
+len1 = len(dd)
+len2 = len(dfjj)
+for i in range(0, len1, 1):
+  b = list_chuck(dd[i],1)
+  len3 = len(b)
+  for q in range(0, len2, 1):
+    d = str(dfjj[q])
+    d = d.replace("[", "")
+    d = d.replace("]", "")
+    d = d.replace("'", "")
+    for p in range(0, len3, 1):
+      z = dd[i][p]
+      if d in z:
+        c.append(d)
+  a.append(c)
+  c = []
+print(a)
+
+# test
+import collections
+counts = collections.Counter(a[0])
+print('빈도수 : ' + counts.most_common(1)[0][0])
+
+# 직무 빈도수 높은 기준으로 뽑아줌
+counts = []
+len0 = len(a)
+print(len0)
+for i in range(0, len0, 1):
+  h1='신입'
+  h = collections.Counter(a[i])
+  # h1 = h.most_common(1)[0][0] 
+  try:
+    h1 = h.most_common(1)[0][0]
+  except:
+    hi = ''
+  counts.append(h1)
+result_job = list_chuck(counts, 1)
+  # print(counts)
+
+t1['지원자'].value_counts()
+
+tj = t1['지원자'].drop_duplicates()
+
+tjj = list(tj)
+
+jm = pd.DataFrame(result_job,tjj)
+
+jm.columns = ['직무']
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(jm['직무'])
+vectors = encoder.transform(jm['직무'])
+
+jm['직무'] = vectors
+
+jm['직무'].value_counts()
+
+# jm.to_csv('/content/drive/MyDrive/인공지능/이력/직무.csv')
+
+# 직무 갯수 확인
+test = pd.read_csv('/content/drive/MyDrive/인공지능/이력/전처리후/직무_new.csv')
+test['직무'].value_counts()
+
+### 자격증명 처리
+
+t2 = df[['지원자', '자격증명']]
+
+# 정보 확인
+t2.info()
+
+# 결측치 확인
+t2.isnull().sum()
+
+t2['지원자'].value_counts()
+
+t2 = t2[['지원자','자격증명']].drop_duplicates()
+
+t2 = t2.reset_index(inplace = False)
+
+t2 = t2.drop(['index'],axis=1)
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(t2['자격증명'])
+vectors = encoder.transform(t2['자격증명'])
+
+t2['자격증명'] = vectors
+
+t2['자격증명'].value_counts()
+
+# 데이터 추가시 변경 필수!!!
+t2['자격증명'] = t2['자격증명'].replace(0,3209)
+t2['자격증명'] = t2['자격증명'].replace(3207,0)
+
+# 중복값 한 행에 넣는 작업
+uni = t2['지원자'].unique()
+test = []
+te = []
+for q in range(0, len(uni), 1):
+  globals()["s{}".format(q)] = []
+for i in range(0, len(uni), 1):
+  for a in range(0, len(t2['지원자']), 1):
+    if uni[i] == t2['지원자'][a]:
+      globals()["s{}".format(i)].append(t2['자격증명'][a])
+  te.append(globals()["s{}".format(i)])
+print(te)
+
+jgj = pd.DataFrame(te)
+jgj = jgj.fillna(0).astype(int)
+
+jgj.columns = ['자격증1', '자격증2', '자격증3', '자격증4', '자격증5', '자격증6', '자격증7', '자격증8', '자격증9', '자격증10']
+
+# jgj.to_csv('/content/drive/MyDrive/인공지능/이력/자격증.csv')
+
+### 학력구분 처리
+
+hl = df[['지원자','최종학력 ']]
+
+hl.columns = ['지원자', '학력구분']
+
+hl = hl[['지원자','학력구분']].drop_duplicates()
+
+hl.info()
+
+hl.isnull().sum()
+
+hl['학력구분'].unique()
+
+len(hl['지원자'].unique())
+
+hl['학력구분'] = hl['학력구분'].fillna(0)
+
+# 범주화 진행
+hl['학력구분'] = hl['학력구분'].replace('대학교 중퇴','고등학교 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학교 졸업예정','고등학교 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학교졸업','대학교 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학원(석사) 재학','대학교 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학원(석사) 수료','석사 졸업')
+hl['학력구분'] = hl['학력구분'].replace('석사','석사 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학원(박사) 재학','석사 졸업')
+hl['학력구분'] = hl['학력구분'].replace('대학원(박사) 수료','박사 졸업')
+hl['학력구분'] = hl['학력구분'].replace('박사','박사 졸업')
+hl['학력구분'] = hl['학력구분'].replace(0,'기타')
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(hl['학력구분'])
+vectors = encoder.transform(hl['학력구분'])
+
+import pickle
+with open('/content/drive/MyDrive/인공지능/이력/전처리후/모델저장/학력구분_vt.pickle', 'wb') as f:
+  pickle. dump(encoder, f)
+
+hl['학력구분'] = vectors
+
+# hl.to_csv('/content/drive/MyDrive/인공지능/이력/학력구분.csv')
+
+### 평점 처리
+
+df2 = pd.read_csv('/content/drive/MyDrive/인공지능/이력/1차가공/test_f_중복제거 수정.csv', encoding = 'cp949')
+
+sj = pd.DataFrame(df2[['지원자','평점','만점','입학년도', '졸업년도', '학교명','전공']])
+sj
+
+sj.info()
+
+sj.isnull().sum()
+
+sj['만점'].unique()
+
+sj['평점'].unique()
+
+sj['만점'] = sj['만점'].fillna(0)
+
+sj['만점'] = sj['만점'].astype(float)
+
+sj['만점'] = sj['만점'].replace('기타',4.5)
+sj['만점'] = sj['만점'].replace(7,4.5)
+sj['만점'] = sj['만점'].replace('선택',4.5)
+sj['만점'] = sj['만점'].replace('선택',4.5)
+sj['만점'] = sj['만점'].replace(0,4.5)
+
+sj['만점'].unique()
+
+sj['평점'] = sj['평점'].replace('.',0)
+sj['평점'] = sj['평점'].replace('3.0ㅣ',3)
+sj['평점'] = sj['평점'].replace('......',0)
+sj['평점'] = sj['평점'].replace('..',0)
+sj['평점'] = sj['평점'].replace('...',0)
+sj['평점'] = sj['평점'].replace(90, 4.0)
+sj['평점'] = sj['평점'].replace(480,0)
+sj['평점'] = sj['평점'].replace('0', 0)
+sj['평점'] = sj['평점'].replace(33, 3.3)
+sj['평점'] = sj['평점'].replace(141, 1.41)
+sj['평점'] = sj['평점'].replace(50, 0)
+sj['평점'] = sj['평점'].replace(3035, 3.035)
+sj['평점'] = sj['평점'].replace(6.5, 0)
+sj['평점'] = sj['평점'].replace(82, 0)
+sj['평점'] = sj['평점'].replace(100, 4.5)
+sj['평점'] = sj['평점'].replace(78, 1.8)
+sj['평점'] = sj['평점'].replace(30.7, 3.07)
+sj['평점'] = sj['평점'].replace(30.6, 3.06)
+sj['평점'] = sj['평점'].replace(8, 0)
+sj['평점'] = sj['평점'].replace(160, 1.6)
+sj['평점'] = sj['평점'].replace(80, 2.5)
+sj['평점'] = sj['평점'].replace(132, 1.32)
+sj['평점'] = sj['평점'].replace(6, 0)
+sj['평점'] = sj['평점'].replace(30.2304, 3.02)
+sj['평점'] = sj['평점'].replace(205, 2.05)
+sj['평점'] = sj['평점'].replace(21, 0)
+sj['평점'] = sj['평점'].replace(30.21, 3.021)
+sj['평점'] = sj['평점'].replace('3.3.5', 3.35)
+sj['평점'] = sj['평점'].replace(20, 0)
+sj['평점'] = sj['평점'].replace('2..3', 2.3)
+sj['평점'] = sj['평점'].replace(88.26, 3.32)
+sj['평점'] = sj['평점'].replace(65, 0)
+sj['평점'] = sj['평점'].replace(145, 1.45)
+sj['평점'] = sj['평점'].replace(36,3.6)
+sj['평점'] = sj['평점'].replace(16, 0)
+sj['평점'] = sj['평점'].replace(142, 1.42)
+sj['평점'] = sj['평점'].replace(30, 3.0)
+sj['평점'] = sj['평점'].replace(309, 3.09)
+sj['평점'] = sj['평점'].replace(3067, 3.067)
+sj['평점'] = sj['평점'].replace(305, 3.05)
+sj['평점'] = sj['평점'].replace(30.3, 3.03)
+sj['평점'] = sj['평점'].replace(313, 3.13)
+sj['평점'] = sj['평점'].replace(318, 3.18)
+sj['평점'] = sj['평점'].replace(35, 3.5)
+sj['평점'] = sj['평점'].replace(266.5, 2.66)
+sj['평점'] = sj['평점'].replace(2000, 2.0)
+sj['평점'] = sj['평점'].replace(295, 2.95)
+sj['평점'] = sj['평점'].replace(306, 3.06)
+sj['평점'] = sj['평점'].replace(40, 4.0)
+sj['평점'] = sj['평점'].replace(10, 1.0)
+sj['평점'] = sj['평점'].replace(2095, 2.09)
+sj['평점'] = sj['평점'].replace(59, 0)
+sj['평점'] = sj['평점'].replace(303, 3.03)
+sj['평점'] = sj['평점'].replace(28, 2.8)
+sj['평점'] = sj['평점'].replace(30.1, 3.01)
+sj['평점'] = sj['평점'].replace(7, 0)
+sj['평점'] = sj['평점'].replace(20.81, 2.08)
+sj['평점'] = sj['평점'].replace(66, 0)
+sj['평점'] = sj['평점'].replace(17, 1.7)
+sj['평점'] = sj['평점'].replace(14.15, 1.41)
+sj['평점'] = sj['평점'].replace(37, 3.7)
+sj['평점'] = sj['평점'].replace(560, 0)
+sj['평점'] = sj['평점'].replace(3059, 3.05)
+sj['평점'] = sj['평점'].replace(30.4, 3.04)
+sj['평점'] = sj['평점'].replace(32.37, 3.23)
+sj['평점'] = sj['평점'].replace(3015, 3.01)
+sj['평점'] = sj['평점'].replace(270, 2.7)
+sj['평점'] = sj['평점'].replace('4..0', 4.0)
+sj['평점'] = sj['평점'].replace(366, 3.66)
+sj['평점'] = sj['평점'].replace(87, 3.2)
+sj['평점'] = sj['평점'].replace(72, 1.7)
+sj['평점'] = sj['평점'].replace(60, 0)
+sj['평점'] = sj['평점'].replace(70, 1.5)
+sj['평점'] = sj['평점'].replace(41, 4.1)
+sj['평점'] = sj['평점'].replace(42, 4.2)
+sj['평점'] = sj['평점'].replace(27, 2.7)
+sj['평점'] = sj['평점'].replace(130, 1.3)
+sj['평점'] = sj['평점'].replace(18, 1.8)
+sj['평점'] = sj['평점'].replace(535, 0)
+sj['평점'] = sj['평점'].replace(120, 1.2)
+sj['평점'] = sj['평점'].replace(97, 4.2)
+sj['평점'] = sj['평점'].replace(360, 3.6)
+sj['평점'] = sj['평점'].replace(89.4, 3.44)
+sj['평점'] = sj['평점'].replace(81, 2.6)
+sj['평점'] = sj['평점'].replace('3.3.', 3.3)
+sj['평점'] = sj['평점'].replace('4월 5일', 0)
+sj['평점'] = sj['평점'].replace(106, 1.06)
+sj['평점'] = sj['평점'].replace(4.9, 0)
+sj['평점'] = sj['평점'].replace(67, 0)
+sj['평점'] = sj['평점'].replace(34, 3.4)
+sj['평점'] = sj['평점'].replace(85, 3.0)
+sj['평점'] = sj['평점'].replace(4.74, 0)
+sj['평점'] = sj['평점'].replace('!', 0)
+sj['평점'] = sj['평점'].replace('!!', 0)
+sj['평점'] = sj['평점'].replace(89, 3.4)
+sj['평점'] = sj['평점'].replace(83, 2.8)
+sj['평점'] = sj['평점'].replace(15, 1.5)
+sj['평점'] = sj['평점'].replace(87.6, 3.26)
+sj['평점'] = sj['평점'].replace(92.5, 3.75)
+sj['평점'] = sj['평점'].replace(80.1, 2.51)
+sj['평점'] = sj['평점'].replace('80.3/100', 2.53)
+sj['평점'] = sj['평점'].replace(84.9, 2.99)
+sj['평점'] = sj['평점'].replace(81.1, 2.61)
+sj['평점'] = sj['평점'].replace('93점', 3.8)
+sj['평점'] = sj['평점'].replace(85.6, 3.06)
+sj['평점'] = sj['평점'].replace(144, 1.44)
+sj['평점'] = sj['평점'].replace('-', 0)
+sj['평점'] = sj['평점'].replace(323, 3.23)
+sj['평점'] = sj['평점'].replace(332, 3.32)
+sj['평점'] = sj['평점'].replace(90.32, 3.53)
+sj['평점'] = sj['평점'].replace(76.5, 2.15)
+sj['평점'] = sj['평점'].replace(75, 2.0)
+sj['평점'] = sj['평점'].replace(79, 2.4)
+sj['평점'] = sj['평점'].replace(81.9, 2.69)
+sj['평점'] = sj['평점'].replace(78.88, 2.38)
+sj['평점'] = sj['평점'].replace(78.5, 2.35)
+sj['평점'] = sj['평점'].replace(83.1, 2.81)
+sj['평점'] = sj['평점'].replace(77, 2.2)
+sj['평점'] = sj['평점'].replace(155, 1.55)
+sj['평점'] = sj['평점'].replace(82.3, 2.73)
+sj['평점'] = sj['평점'].replace(33.75, 3.37)
+sj['평점'] = sj['평점'].replace('89/100', 3.4)
+sj['평점'] = sj['평점'].replace(4.86, 0)
+sj['평점'] = sj['평점'].replace(80.6, 2.56)
+sj['평점'] = sj['평점'].replace(82.5, 2.75)
+sj['평점'] = sj['평점'].replace(71.2, 1.62)
+sj['평점'] = sj['평점'].replace(81.9, 2.69)
+sj['평점'] = sj['평점'].replace(148, 1.48)
+sj['평점'] = sj['평점'].replace(78.6, 2.36)
+sj['평점'] = sj['평점'].replace(88.1, 3.31)
+sj['평점'] = sj['평점'].replace('3', 3.0)
+sj['평점'] = sj['평점'].replace(37.5, 3.75)
+sj['평점'] = sj['평점'].replace(140.0, 1.4)
+sj['평점'] = sj['평점'].replace(208.  , 2.8)
+sj['평점'] = sj['평점'].replace(5.   , 0)
+sj['평점'] = sj['평점'].replace(34.8, 3.48)
+sj['평점'] = sj['평점'].replace(81.94, 2.69)
+sj['평점'] = sj['평점'].fillna(0)
+
+sj['평점'].unique()
+
+sj['평점'] = sj['평점'].astype(float)
+
+sj['평점'].unique()
+
+len(sj['평점'])
+
+len(sj['만점'])
+
+sj.isnull().sum()
+
+sj['만점'].value_counts()
+
+# http://apply.megamd.co.kr/schams/2014/final/pop_gpa.html  => 학점 환산표 반영하여 적용함.
+# 만점 4.5 / 4.3 / 4.0 에 맞게 범주화 및 수치화 진행
+b=[]
+for i in range(0, len(sj['평점']), 1):
+  a=""
+  # print(sj['만점'][0])
+  if sj['만점'][i] == 4.5:
+    if sj['평점'][i] == 4.5:  
+      a = 8    # A+
+      b.append(a)   
+    elif 4.00 <= sj['평점'][i] <= 4.49:
+      a = 7   # A
+      b.append(a)
+    elif 3.50 <= sj['평점'][i] <= 3.99:
+      a = 6   # B+
+      b.append(a)
+    elif 3.00 <= sj['평점'][i] <= 3.49:
+      a = 5   # B
+      b.append(a)
+    elif 2.50 <= sj['평점'][i] <= 2.99:
+      a = 4   # C+
+      b.append(a)
+    elif 2.00 <= sj['평점'][i] <= 2.49:
+      a = 3   # C
+      b.append(a)
+    elif 1.5 <= sj['평점'][i] <= 1.99:
+      a = 2   # D+
+      b.append(a)
+    elif 1.00 <= sj['평점'][i] <= 1.49:
+      a = 1   # D
+      b.append(a)
+    else:
+      a = 0   # F
+      b.append(a)
+  if sj['만점'][i]== 4.3:
+    if sj['평점'][i] == 4.3:  
+      a = 8    # A+
+      b.append(a)   
+    elif 3.80 <= sj['평점'][i] <= 4.29:
+      a = 7   # A
+      b.append(a)
+    elif 3.30 <= sj['평점'][i] <= 3.79:
+      a = 6   # B+
+      b.append(a)
+    elif 2.80 <= sj['평점'][i] <= 3.29:
+      a = 5   # B
+      b.append(a)
+    elif 2.30 <= sj['평점'][i] <= 2.79:
+      a = 4   # C+
+      b.append(a)
+    elif 1.80 <= sj['평점'][i] <= 2.29:
+      a = 3   # C
+      b.append(a)
+    elif 1.30 <= sj['평점'][i] <= 1.79:
+      a = 2   # D+
+      b.append(a)
+    elif 0.80 <= sj['평점'][i] <= 1.29:
+      a = 1   # D
+      b.append(a)
+    else:
+      a = 0   # F
+      b.append(a)
+  if sj['만점'][i]== 4.0:
+    if sj['평점'][i] == 4.0:  
+      a = 8    # A+
+      b.append(a)   
+    elif 3.50 <= sj['평점'][i] <= 3.99:
+      a = 7   # A
+      b.append(a)
+    elif 3.00 <= sj['평점'][i] <= 3.49:
+      a = 6   # B+
+      b.append(a)
+    elif 2.50 <= sj['평점'][i] <= 2.99:
+      a = 5   # B
+      b.append(a)
+    elif 2.00 <= sj['평점'][i] <= 2.49:
+      a = 4   # C+
+      b.append(a)
+    elif 1.50 <= sj['평점'][i] <= 1.99:
+      a = 3   # C
+      b.append(a)
+    elif 1.00 <= sj['평점'][i] <= 1.49:
+      a = 2   # D+
+      b.append(a)
+    elif 0.50 <= sj['평점'][i] <= 0.99:
+      a = 1   # D
+      b.append(a)
+    else:
+      a = 0   # F
+      b.append(a)  
+
+sj['평점'] = b
+
+sj['평점'].unique()
+
+sj = sj.drop(['만점','입학년도', '졸업년도', '학교명','전공'],axis=1)
+
+# sj.to_csv('/content/drive/MyDrive/인공지능/이력/평점처리.csv')
+
+### 전체 경력 처리
+
+df.head()
+
+gr = pd.DataFrame(df[['지원자','전체경력 ']])
+gr.columns = ['지원자','전체경력']
+gr
+
+gr = gr[['지원자','전체경력']].drop_duplicates()
+
+gr = gr.reset_index(inplace = False)
+
+gr = gr.drop(['index'],axis=1)
+
+a = []
+for i in gr['전체경력']:
+  i = i.replace('개월', '')
+  i = i.replace('년', '')
+  i = i.replace(' ', '*12+')
+  i = eval(i)
+  a.append(i)
+
+gr['전체경력'] = a
+
+# gr.to_csv('/content/drive/MyDrive/인공지능/이력/전체경력처리.csv')
+
+### 어학능력 처리
+
+df.head()
+
+lg = df[['지원자', '언어', '공인시험', '점수']]
+lg.head()
+
+lg.info()
+
+lg = lg[['지원자', '언어', '공인시험', '점수']].drop_duplicates()
+
+lg = lg.reset_index(inplace = False)
+
+lg = lg.drop(['index'],axis=1)
+
+lg.info()
+
+lg['언어'].value_counts()
+
+lg['언어'][0:100]
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(lg['언어'])
+vectors = encoder.transform(lg['언어'])
+
+lg['언어'] = vectors
+
+# 중복값 한 행에 넣는 작업
+uni = lg['지원자'].unique()
+test = []
+te = []
+for q in range(0, len(uni), 1):
+  globals()["s{}".format(q)] = []
+for i in range(0, len(uni), 1):
+  for a in range(0, len(lg['지원자']), 1):
+    if uni[i] == lg['지원자'][a]:
+      globals()["s{}".format(i)].append(lg['언어'][a])
+  te.append(globals()["s{}".format(i)])
+print(te)
+
+lg_f = pd.DataFrame(te)
+lg_f = lg_f.fillna(0).astype(int)
+
+# lg_f.to_csv('/content/drive/MyDrive/인공지능/이력/언어.csv')
+
+### 대학교 처리
+
+df2.head()
+
+dh = df2[['지원자','학교명']]
+dh.head()
+
+dh.info()
+
+dh['지원자'].value_counts()
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(dh['학교명'])
+vectors = encoder.transform(dh['학교명'])
+
+import pickle
+with open('/content/drive/MyDrive/인공지능/이력/전처리후/모델저장/학교명_vt.pickle', 'wb') as f:
+  pickle. dump(encoder, f)
+
+dh['학교명'] = vectors
+
+# dh.to_csv('/content/drive/MyDrive/인공지능/이력/대학교.csv')
+
+### 전공 처리
+
+DB 처리 후 진행
+
+df_2차전공 = pd.read_csv('/content/drive/MyDrive/인공지능/이력/전공_2차전처리.csv', encoding = 'cp949')
+
+df_2차전공['j3'].nunique()
+
+jg = pd.concat([df[['지원자', '직무태그']], df_2차전공['j3']], axis=1)
+
+jg.info()
+
+jg = jg[['지원자','직무태그','j3']].drop_duplicates()
+
+jg = jg.reset_index(inplace = False)
+
+jg = jg.drop(['index'],axis=1)
+
+jg = jg.drop(['직무태그'], axis=1)
+
+jg['지원자'].value_counts()
+
+jg = jg.drop_duplicates(['지원자'], keep = 'last')
+
+from sklearn.preprocessing import LabelEncoder
+encoder = LabelEncoder()
+encoder.fit(jg['j3'])
+vectors = encoder.transform(jg['j3'])
+
+import pickle
+with open('/content/drive/MyDrive/인공지능/이력/전처리후/모델저장/전공_vt.pickle', 'wb') as f:
+  pickle. dump(encoder, f)
+
+jg['전공'] = vectors
+
+jg = jg.drop(['j3'], axis=1)
+
+# jg.to_csv('/content/drive/MyDrive/인공지능/이력/전공.csv')
+
+# 1차 모델링(단일 인풋 단일 아웃풋_DNN)
+path = '/content/drive/MyDrive/인공지능/이력/전처리후/대학교.csv'
+path_1 = '/content/drive/MyDrive/인공지능/이력/전처리후/언어_new.csv'
+path_2 = '/content/drive/MyDrive/인공지능/이력/전처리후/자격증_new.csv'
+path_3 = '/content/drive/MyDrive/인공지능/이력/전처리후/전공.csv'
+path_4 = '/content/drive/MyDrive/인공지능/이력/전처리후/전체경력처리.csv'
+path_5 = '/content/drive/MyDrive/인공지능/이력/전처리후/학력구분.csv'
+path_6 = '/content/drive/MyDrive/인공지능/이력/전처리후/평점처리.csv'
+path_7 = '/content/drive/MyDrive/인공지능/이력/전처리후/직무_new.csv'
+
+input_대학교 = pd.read_csv(path) # 라벨 인코딩
+input_대학교 = input_대학교.drop(['Unnamed: 0','지원자'], axis =1)
+input_언어 = pd.read_csv(path_1, encoding='cp949') # 원핫인코딩
+input_언어 = input_언어.drop(['Unnamed: 0'], axis =1)
+input_자격증 = pd.read_csv(path_2, encoding='cp949') # 라벨인코딩
+input_자격증 = input_자격증.drop(['Unnamed: 0'], axis =1)
+input_전공 = pd.read_csv(path_3) # 라벨인코딩
+input_전공 = input_전공.drop(['Unnamed: 0','지원자'], axis =1)
+input_전체경력 = pd.read_csv(path_4) # 수치형 변수
+input_전체경력 = input_전체경력.drop(['Unnamed: 0','지원자'], axis =1)
+input_학력 = pd.read_csv(path_5) # 수치형 변수
+input_학력 = input_학력.drop(['Unnamed: 0','지원자'], axis =1)
+input_평점 = pd.read_csv(path_6) # 수치형 변수
+input_평점 = input_평점.drop(['Unnamed: 0','지원자'], axis =1)
+main_output = pd.read_csv(path_7)
+main_output = main_output.drop(['Unnamed: 0'], axis =1)
+input_1 = pd.concat([input_대학교, input_전공, input_전체경력,input_평점,input_학력], axis=1)
+
+c_input_1 = np.array(input_1)
+c_main_output = np.array(main_output['직무'])
+c_input_언어 = np.array(input_언어)
+c_input_자격증 = np.array(input_자격증)
+
+input_final = np.concatenate([c_input_1, c_input_언어, c_input_자격증],axis=1)
+
+# 정규화 적용
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+# StandardScaler
+# scaler_s = StandardScaler()
+# MinMaxScaler
+scaler_m = MinMaxScaler()
+input_finalf = scaler_m.fit_transform(input_final)
+
+# 기본 오버샘플링
+from imblearn.over_sampling import RandomOverSampler
+X_resampled, y_resampled = RandomOverSampler(random_state=0).fit_resample(input_finalf, main_output)
+
+from sklearn.model_selection import train_test_split
+
+RANDOM_SEED = 20
+TEST_SPLIT = 0.2
+
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=TEST_SPLIT, 
+                                                    random_state=RANDOM_SEED)
+
+def dnn_model():
+  model = Sequential()
+  model.add(Dense(2048, input_dim = 36, activation = "relu"))
+  model.add(Dropout(0.2))
+  model.add(BatchNormalization())
+  model.add(Dense(1024, activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(512, activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(256, activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(256, activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(315, activation = "softmax"))
+  return model
+
+
+model = dnn_model()
+model.compile(loss = 'sparse_categorical_crossentropy', optimizer='Adam', metrics = ['accuracy'])
+
+early_stopping = EarlyStopping(monitor='val_loss',min_delta=0.001,patience=2,verbose=0,mode='auto')  
+history = model.fit(x = X_train, y = y_train,
+                    validation_data =(X_test, y_test), epochs = 20, batch_size=1024,callbacks=[early_stopping])
+
+#모델 save
+model.save("/content/drive/MyDrive/인공지능/이력/모델저장/dnn_f1.h5")
+
+# 정확도, 손실률 한번에 시각화
+fig, loss_ax = plt.subplots()
+
+acc_ax = loss_ax.twinx()
+
+loss_ax.plot(history.history['loss'], 'y', label='train loss')
+loss_ax.plot(history.history['val_loss'], 'r', label='val loss')
+
+acc_ax.plot(history.history['accuracy'], 'b', label='train acc')
+acc_ax.plot(history.history['val_accuracy'], 'g', label='val acc')
+
+loss_ax.set_xlabel('epoch')
+loss_ax.set_ylabel('loss')
+acc_ax.set_ylabel('accuray')
+
+loss_ax.legend(loc='upper left')
+acc_ax.legend(loc='lower left')
+
+plt.show()
+
+# 2차 모델링(다중 인풋 단일 아웃풋_DNN)
+path = '/content/drive/MyDrive/인공지능/이력/전처리후/대학교.csv'
+path_1 = '/content/drive/MyDrive/인공지능/이력/전처리후/언어_new.csv'
+path_2 = '/content/drive/MyDrive/인공지능/이력/전처리후/자격증_new.csv'
+path_3 = '/content/drive/MyDrive/인공지능/이력/전처리후/전공.csv'
+path_4 = '/content/drive/MyDrive/인공지능/이력/전처리후/전체경력처리.csv'
+path_5 = '/content/drive/MyDrive/인공지능/이력/전처리후/학력구분.csv'
+path_6 = '/content/drive/MyDrive/인공지능/이력/전처리후/평점처리.csv'
+path_7 = '/content/drive/MyDrive/인공지능/이력/전처리후/직무_new.csv'
+
+input_대학교 = pd.read_csv(path) # 라벨 인코딩
+input_대학교 = input_대학교.drop(['Unnamed: 0','지원자'], axis =1)
+input_언어 = pd.read_csv(path_1, encoding='cp949') # 원핫인코딩
+input_언어 = input_언어.drop(['Unnamed: 0'], axis =1)
+input_자격증 = pd.read_csv(path_2, encoding='cp949') # 라벨인코딩
+input_자격증 = input_자격증.drop(['Unnamed: 0'], axis =1)
+input_전공 = pd.read_csv(path_3) # 라벨인코딩
+input_전공 = input_전공.drop(['Unnamed: 0','지원자'], axis =1)
+input_전체경력 = pd.read_csv(path_4) # 수치형 변수
+input_전체경력 = input_전체경력.drop(['Unnamed: 0','지원자'], axis =1)
+input_학력 = pd.read_csv(path_5) # 수치형 변수
+input_학력 = input_학력.drop(['Unnamed: 0','지원자'], axis =1)
+input_평점 = pd.read_csv(path_6) # 수치형 변수
+input_평점 = input_평점.drop(['Unnamed: 0','지원자'], axis =1)
+main_output = pd.read_csv(path_7)
+main_output = main_output.drop(['Unnamed: 0'], axis =1)
+
+input_1 = pd.concat([input_언어, input_전체경력,input_평점,input_학력], axis=1)
+
+c_input_1 = np.array(input_1)
+c_main_output = np.array(main_output['직무'])
+c_input_대학교 = np.array(input_대학교)
+c_input_전공 = np.array(input_전공)
+c_input_자격증 = np.array(input_자격증)
+
+# 정규화 적용
+# MinMaxScaler
+scaler_m = MinMaxScaler()
+input_final1 = scaler_m.fit_transform(c_input_1)
+input_final2 = scaler_m.fit_transform(c_input_자격증)
+input_final3 = scaler_m.fit_transform(c_input_전공)
+input_final4 = scaler_m.fit_transform(c_input_대학교)
+
+# 기본 오버샘플링
+from imblearn.over_sampling import RandomOverSampler
+X_input1, y_label = RandomOverSampler(random_state=0).fit_resample(input_final1, c_main_output)
+X_자격증, y_label = RandomOverSampler(random_state=0).fit_resample(input_final2, c_main_output)
+X_대학교, y_label = RandomOverSampler(random_state=0).fit_resample(input_final3, c_main_output)
+X_전공, y_label = RandomOverSampler(random_state=0).fit_resample(input_final4, c_main_output)
+
+input_1 = Input(shape=(10,))
+x_1 = Dense(512, activation = 'relu')(input_1)
+x_1 = Dropout(0.2)(x_1)
+x_1 = BatchNormalization()(x_1)
+
+input_2 = Input(shape=(24,))
+x_2 = Embedding(output_dim=100, input_dim=361, input_length=24)(input_2)
+x_2 = Dense(512, activation = 'relu')(x_2)
+x_2 = Dropout(0.2)(x_2)
+x_2 = BatchNormalization()(x_2)
+x_2 = (SimpleRNN(24))(x_2)
+x_2 = Dropout(0.2)(x_2)
+# x_2 = Reshape((512, 24))(x_2)
+
+input_3 = Input(shape=(1,))
+x_3 = Embedding(output_dim=100, input_dim=45, input_length=1)(input_3)
+x_3 = Dense(512, activation = 'relu')(x_3)
+x_3 = Dropout(0.2)(x_3)
+x_3 = BatchNormalization()(x_3)
+x_3 = (SimpleRNN(1))(x_3)
+x_3 = Dropout(0.2)(x_3)
+# x_3 = Reshape((512, 1))(x_3)
+
+input_4 = Input(shape=(1,))
+x_4 = Embedding(output_dim=100, input_dim=192, input_length=1)(input_4)
+x_4 = Dense(512, activation = 'relu')(x_4)
+x_4 = Dropout(0.2)(x_4)
+x_4 = BatchNormalization()(x_4)
+x_4 = (SimpleRNN(1))(x_4)
+x_4 = Dropout(0.2)(x_4)
+# x_4 = Reshape((512, 1))(x_4)
+
+embedding =  keras.layers.concatenate([x_2, x_3, x_4])
+# embedding = (SimpleRNN(24))(embedding)
+# embedding = Reshape((2048, 3))(embedding)
+# embedding = Dense(1024, activation='relu')(embedding)
+
+result = keras.layers.concatenate([x_1, embedding])
+z = Dense(256, activation='relu')(result)
+z = Dropout(0.2)(z)
+z = Dense(256, activation='relu')(z)
+z = Dropout(0.2)(z)
+# z = Dense(512, activation='relu')(z)
+# z = Dropout(0.2)(z)
+
+main_output = Dense(315, activation='softmax', name='main_output')(z)
+
+model = Model(inputs=[input_1, input_2, input_3, input_4], outputs=main_output)
+
+model.summary()
+
+# rmsprop
+model.compile(loss = 'sparse_categorical_crossentropy', optimizer='SGD', metrics = ['accuracy'])
+
+from tensorflow.python.keras.callbacks import EarlyStopping
+early_stopping = EarlyStopping(monitor='val_loss',min_delta=0.001,patience=2,verbose=0,mode='auto')  
+history = model.fit([c_input_1, c_input_자격증, c_input_대학교, c_input_전공], c_main_output, validation_split=0.2, epochs = 50, batch_size=512,callbacks=[early_stopping])
